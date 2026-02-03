@@ -1,3 +1,7 @@
+/**
+ * Auth middleware – requireAuth reads token from Authorization header only.
+ * requireAdmin is used only by admin routes (never by /api/auth).
+ */
 import jwt from 'jsonwebtoken';
 import { User } from '../models/User.js';
 
@@ -5,7 +9,7 @@ const accessSecret = process.env.JWT_ACCESS_SECRET;
 const refreshSecret = process.env.JWT_REFRESH_SECRET;
 
 export function requireAuth(req, res, next) {
-  const token = req.cookies?.accessToken || req.headers.authorization?.replace('Bearer ', '');
+  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '') || req.cookies?.accessToken;
   if (!token) {
     return res.status(401).json({ error: 'Authentication required' });
   }
@@ -32,23 +36,12 @@ export function requireAdmin(req, res, next) {
   next();
 }
 
-export async function optionalAuth(req, res, next) {
-  const token = req.cookies?.accessToken || req.headers.authorization?.replace('Bearer ', '');
-  if (!token || !accessSecret) return next();
-  try {
-    const decoded = jwt.verify(token, accessSecret);
-    req.userId = decoded.userId;
-    req.userRole = decoded.role;
-  } catch (_) {}
-  next();
-}
-
 export function signAccessToken(user) {
   if (!accessSecret) throw new Error('JWT_ACCESS_SECRET not set');
   return jwt.sign(
     { userId: user._id.toString(), role: user.role },
     accessSecret,
-    { expiresIn: process.env.JWT_ACCESS_EXPIRY || '15m' }
+    { expiresIn: process.env.JWT_ACCESS_EXPIRY || '7d' }
   );
 }
 

@@ -1,24 +1,53 @@
+/**
+ * API client – uses token from localStorage in Authorization header (no cookies).
+ * Same-origin requests go through Vite proxy to the backend.
+ */
+const TOKEN_KEY = 'accessToken';
 const base = import.meta.env.VITE_API_URL || '';
 
-export async function api(path, options = {}, retried = false) {
-  const url = path.startsWith('http') ? path : `${base}${path.startsWith('/') ? '' : '/'}${path}`;
+function getToken() {
+  try {
+    return typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+export function setToken(token) {
+  try {
+    if (typeof window !== 'undefined' && token) localStorage.setItem(TOKEN_KEY, token);
+  } catch (_) {}
+}
+
+export function clearToken() {
+  try {
+    if (typeof window !== 'undefined') localStorage.removeItem(TOKEN_KEY);
+  } catch (_) {}
+}
+
+export async function api(path, options = {}) {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const url = path.startsWith('http') ? path : `${base}${normalizedPath}`;
+  const token = getToken();
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token && { Authorization: `Bearer ${token}` }),
+    ...options.headers,
+  };
   const res = await fetch(url, {
     ...options,
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
+    // No credentials so we don't rely on cookies
+    credentials: 'omit',
   });
-  const data = await res.json().catch(() => ({}));
+  let data = {};
+  try {
+    const text = await res.text();
+    data = text ? JSON.parse(text) : {};
+  } catch (_) {}
   if (!res.ok) {
-    if (res.status === 401 && data.code === 'TOKEN_EXPIRED' && !retried) {
-      try {
-        await fetch(`${base}/api/auth/refresh`, { method: 'POST', credentials: 'include' });
-        return api(path, options, true);
-      } catch (_) {}
-    }
-    const err = new Error(data.error || res.statusText);
+    const msg = data.error || res.statusText || 'Request failed';
+    const err = new Error(msg);
     err.status = res.status;
     err.code = data.code;
     throw err;

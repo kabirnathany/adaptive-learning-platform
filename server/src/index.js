@@ -1,6 +1,5 @@
 import 'dotenv/config';
 import express from 'express';
-import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -33,22 +32,86 @@ const authLimiter = rateLimit({
   message: { error: 'Too many login/signup attempts. Try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.method === 'OPTIONS',
 });
 
-app.use(helmet({
-  contentSecurityPolicy: isProd ? undefined : false,
-  crossOriginResourcePolicy: { policy: 'cross-origin' },
-}));
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+if (isProd) {
+  app.use(helmet({
+    contentSecurityPolicy: true,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  }));
+} else {
+  app.use(helmet({ contentSecurityPolicy: false, crossOriginResourcePolicy: false }));
+}
+const defaultOrigin = process.env.FRONTEND_URL || 'http://localhost:5173';
+const allowedOrigins = [
+  defaultOrigin,
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'http://localhost:5176',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+  'http://127.0.0.1:5175',
+  'http://127.0.0.1:5176',
+].filter((o, i, a) => o && a.indexOf(o) === i);
+// When Origin is missing (e.g. same-origin via proxy), use Referer so the response is allowed
+function getRequestOrigin(req) {
+  const origin = req.get('Origin');
+  if (origin) return origin;
+  try {
+    const r = req.get('Referer');
+    if (r) return new URL(r).origin;
+  } catch (_) {}
+  return defaultOrigin;
+}
+
+// Set CORS headers on every request so proxy/same-origin always gets the right Allow-Origin
+app.use((req, res, next) => {
+  const origin = getRequestOrigin(req);
+  const allow =
+    allowedOrigins.includes(origin) ||
+    (!isProd && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin));
+  if (allow) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  }
+  next();
+});
 app.use(express.json({ limit: '100kb' }));
 app.use(cookieParser());
 app.use(generalLimiter);
 
+// Explicit CORS preflight for /api so auth signup is never blocked
+app.use((req, res, next) => {
+  const path = req.originalUrl?.split('?')[0] || req.url?.split('?')[0] || req.path || '';
+  if (req.method === 'OPTIONS' && path.startsWith('/api')) {
+    const origin = getRequestOrigin(req);
+    const allow =
+      allowedOrigins.includes(origin) ||
+      (!isProd && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin));
+    if (allow) res.set('Access-Control-Allow-Origin', origin);
+    res.set('Access-Control-Allow-Credentials', 'true');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    return res.sendStatus(204);
+  }
+  next();
+});
+
+// Log /api requests in dev to debug routing (before any route handler)
+if (!isProd) {
+  app.use((req, res, next) => {
+    if ((req.originalUrl || req.url || '').startsWith('/api')) {
+      console.log('[api]', req.method, req.originalUrl || req.url);
+    }
+    next();
+  });
+}
+
+// Auth routes only – no requireAdmin, no top-level signup; tokens in body
 app.use('/api/auth', authLimiter, authRouter);
 app.use('/api/subjects', subjectsRouter);
 app.use('/api/quiz', quizRouter);
@@ -67,6 +130,13 @@ async function start() {
 }
 
 start().catch((err) => {
-  console.error('Failed to start:', err);
+  if (err.name === 'MongooseServerSelectionError' || err.message?.includes('ECONNREFUSED')) {
+    console.error('\n❌ MongoDB is not running. The server cannot connect to', process.env.MONGODB_URI || 'localhost:27017');
+    console.error('\nOptions:');
+    console.error('  1. Use MongoDB Atlas (free): https://www.mongodb.com/cloud/atlas → create cluster → get connection string → set MONGODB_URI in .env');
+    console.error('  2. Run MongoDB locally: brew install mongodb-community && brew services start mongodb-community (macOS)\n');
+  } else {
+    console.error('Failed to start:', err);
+  }
   process.exit(1);
 });

@@ -1,5 +1,8 @@
+/**
+ * Auth context – signup/login return user + accessToken; token stored in localStorage and sent via Authorization header.
+ */
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { get, post } from '../api';
+import { get, post, setToken, clearToken } from '../api';
 
 const AuthContext = createContext(null);
 
@@ -14,6 +17,7 @@ export function AuthProvider({ children }) {
       return u;
     } catch (_) {
       setUser(null);
+      clearToken();
       return null;
     } finally {
       setLoading(false);
@@ -24,24 +28,16 @@ export function AuthProvider({ children }) {
     loadUser();
   }, [loadUser]);
 
-  const refreshToken = useCallback(async () => {
-    try {
-      await post('/api/auth/refresh');
-      return loadUser();
-    } catch (_) {
-      setUser(null);
-      return null;
-    }
-  }, [loadUser]);
-
   const login = async (email, password) => {
     const data = await post('/api/auth/login', { email, password });
+    setToken(data.accessToken);
     setUser(data.user);
     return data.user;
   };
 
   const signup = async (email, password, name) => {
     const data = await post('/api/auth/signup', { email, password, name });
+    setToken(data.accessToken);
     setUser(data.user);
     return data.user;
   };
@@ -50,21 +46,16 @@ export function AuthProvider({ children }) {
     try {
       await post('/api/auth/logout');
     } finally {
+      clearToken();
       setUser(null);
     }
   };
 
-  const value = {
-    user,
-    loading,
-    login,
-    signup,
-    logout,
-    refreshToken,
-    loadUser,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ user, loading, login, signup, logout, loadUser }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

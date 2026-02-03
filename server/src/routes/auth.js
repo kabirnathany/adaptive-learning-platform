@@ -1,32 +1,15 @@
+/**
+ * Auth routes – signup, login, logout, me.
+ * No requireAdmin. Tokens returned in body so client can use Authorization header (avoids cookie/CORS issues).
+ */
 import { Router } from 'express';
 import { body, validationResult } from 'express-validator';
 import { User, hashPassword, comparePassword } from '../models/User.js';
-import {
-  requireAuth,
-  signAccessToken,
-  signRefreshToken,
-  verifyRefreshToken,
-} from '../middleware/auth.js';
+import { requireAuth, signAccessToken } from '../middleware/auth.js';
 
 const router = Router();
-const isProd = process.env.NODE_ENV === 'production';
-const cookieOpts = {
-  httpOnly: true,
-  secure: process.env.COOKIE_SECURE === 'true',
-  sameSite: 'strict',
-  maxAge: 7 * 24 * 60 * 60 * 1000,
-  path: '/',
-};
 
-function setAuthCookies(res, accessToken, refreshToken) {
-  res.cookie('accessToken', accessToken, {
-    ...cookieOpts,
-    maxAge: 15 * 60 * 1000,
-  });
-  res.cookie('refreshToken', refreshToken, cookieOpts);
-}
-
-// Sign up
+// ----- Signup -----
 router.post(
   '/signup',
   [
@@ -54,10 +37,9 @@ router.post(
       const passwordHash = await hashPassword(password);
       const user = await User.create({ email, passwordHash, name });
       const accessToken = signAccessToken(user);
-      const refreshToken = signRefreshToken(user);
-      setAuthCookies(res, accessToken, refreshToken);
       res.status(201).json({
         user: { id: user._id, email: user.email, name: user.name, role: user.role },
+        accessToken,
       });
     } catch (e) {
       next(e);
@@ -65,13 +47,10 @@ router.post(
   }
 );
 
-// Login
+// ----- Login -----
 router.post(
   '/login',
-  [
-    body('email').isEmail().normalizeEmail(),
-    body('password').notEmpty(),
-  ],
+  [body('email').isEmail().normalizeEmail(), body('password').notEmpty()],
   async (req, res, next) => {
     try {
       const errors = validationResult(req);
@@ -84,10 +63,9 @@ router.post(
         return res.status(401).json({ error: 'Invalid email or password' });
       }
       const accessToken = signAccessToken(user);
-      const refreshToken = signRefreshToken(user);
-      setAuthCookies(res, accessToken, refreshToken);
       res.json({
         user: { id: user._id, email: user.email, name: user.name, role: user.role },
+        accessToken,
       });
     } catch (e) {
       next(e);
@@ -95,38 +73,12 @@ router.post(
   }
 );
 
-// Refresh access token
-router.post('/refresh', async (req, res, next) => {
-  try {
-    const refreshToken = req.cookies?.refreshToken;
-    if (!refreshToken) {
-      return res.status(401).json({ error: 'Session expired' });
-    }
-    const user = await verifyRefreshToken(refreshToken);
-    if (!user) {
-      res.clearCookie('accessToken', { path: '/' });
-      res.clearCookie('refreshToken', { path: '/' });
-      return res.status(401).json({ error: 'Session expired' });
-    }
-    const newAccess = signAccessToken(user);
-    res.cookie('accessToken', newAccess, {
-      ...cookieOpts,
-      maxAge: 15 * 60 * 1000,
-    });
-    res.json({ ok: true });
-  } catch (e) {
-    next(e);
-  }
-});
-
-// Logout
+// ----- Logout (client clears token; this is for consistency) -----
 router.post('/logout', (req, res) => {
-  res.clearCookie('accessToken', { path: '/' });
-  res.clearCookie('refreshToken', { path: '/' });
   res.json({ ok: true });
 });
 
-// Current user (requires auth)
+// ----- Current user (requires Authorization: Bearer <token>) -----
 router.get('/me', requireAuth, async (req, res, next) => {
   try {
     const user = await User.findById(req.userId)
