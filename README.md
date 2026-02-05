@@ -80,7 +80,3 @@ Or add a one-off script in `server/src/scripts/make-admin.js` that sets `role: '
 | `npm run seed` | server  | Seed subjects/topics/Qs  |
 | `npm run dev`  | client  | Start Vite dev server    |
 | `npm run build`| client  | Production build         |
-
-## License
-
-MIT.

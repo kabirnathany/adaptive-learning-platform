@@ -9,8 +9,6 @@ const userSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now },
 }, { timestamps: true });
 
-userSchema.index({ email: 1 });
-
 export const User = mongoose.model('User', userSchema);
 
 export async function hashPassword(plain) {

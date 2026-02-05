@@ -5,11 +5,13 @@ import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import SubjectSelect from './pages/SubjectSelect';
+import SubjectSelection from './pages/SubjectSelection';
 import Dashboard from './pages/Dashboard';
 import Quiz from './pages/Quiz';
 import AdaptiveQuiz from './pages/AdaptiveQuiz';
 import Materials from './pages/Materials';
 import Admin from './pages/Admin';
+import ProgressDashboard from './components/ProgressDashboard';
 
 function ProtectedRoute({ children, requireAdmin }) {
   const { user, loading } = useAuth();
@@ -37,6 +39,22 @@ export default function App() {
           element={
             <ProtectedRoute>
               <SubjectSelect />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="subjects"
+          element={
+            <ProtectedRoute>
+              <SubjectSelection />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="progress-dashboard"
+          element={
+            <ProtectedRoute>
+              <ProgressDashboard />
             </ProtectedRoute>
           }
         />

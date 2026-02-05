@@ -18,6 +18,12 @@ export default function Layout() {
                 <Link to="/dashboard" className="text-slate-600 hover:text-brand-600">
                   Dashboard
                 </Link>
+                <Link to="/subjects" className="text-slate-600 hover:text-brand-600">
+                  Subjects
+                </Link>
+                <Link to="/progress-dashboard" className="text-slate-600 hover:text-brand-600">
+                  Progress
+                </Link>
                 {user.role === 'admin' && (
                   <Link to="/admin" className="text-slate-600 hover:text-brand-600">
                     Admin
