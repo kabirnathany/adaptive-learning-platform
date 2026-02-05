@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { get } from '../api';
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const location = useLocation();
+  const stateMessage = location.state?.message;
 
   useEffect(() => {
     get('/api/progress/dashboard')
@@ -25,104 +27,99 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      <h1 className="font-display text-2xl font-semibold mb-6">Your learning dashboard</h1>
+      {stateMessage && (
+        <div className="mb-6 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-green-800">
+          {stateMessage}
+        </div>
+      )}
+      <h1 className="font-display text-3xl font-bold text-slate-800 mb-2">Your learning dashboard</h1>
+      <p className="text-slate-600 mb-8">Track progress and choose what to study next.</p>
 
-      <section className="mb-8">
-        <h2 className="font-display font-semibold text-lg mb-3">Choose a subject to start or continue</h2>
-        <div className="flex flex-wrap gap-3">
+      <section className="mb-10">
+        <h2 className="font-display font-semibold text-lg text-slate-800 mb-4">Subjects</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {bySubject.length > 0 ? (
             bySubject.map((s) => (
-              <Link
+              <div
                 key={s.subjectId}
-                to={`/quiz/initial/${s.subjectId}`}
-                className="px-4 py-2 bg-brand-100 text-brand-700 rounded-lg hover:bg-brand-200"
+                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md hover:border-brand-200"
               >
-                {s.subjectName} – Start initial quiz
-              </Link>
+                <h3 className="font-display font-semibold text-slate-800 mb-2">{s.subjectName}</h3>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {!s.initialQuizCompleted ? (
+                    <Link
+                      to={`/quiz/initial/${s.subjectId}`}
+                      className="inline-flex items-center rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+                    >
+                      Start initial quiz
+                    </Link>
+                  ) : (
+                    <Link
+                      to={`/quiz/adaptive/${s.subjectId}`}
+                      className="inline-flex items-center rounded-lg bg-brand-100 px-4 py-2 text-sm font-medium text-brand-700 hover:bg-brand-200"
+                    >
+                      Take adaptive quiz
+                    </Link>
+                  )}
+                </div>
+                <p className="text-slate-500 text-sm">
+                  Mastered: {s.mastered} · Need practice: {s.weak} · Topics: {s.total}
+                </p>
+              </div>
             ))
           ) : (
             <Link
               to="/choose-subject"
-              className="px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700"
+              className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-8 text-center transition hover:border-brand-400 hover:bg-brand-50"
             >
-              Choose subject for initial quiz
+              <span className="font-display font-semibold text-slate-700">Choose a subject</span>
+              <span className="mt-1 text-sm text-slate-500">Start with an initial quiz</span>
             </Link>
           )}
         </div>
-        <p className="mt-2 text-slate-600 text-sm">
-          Or take an <strong>adaptive quiz</strong> to focus on weak areas:{' '}
-          {bySubject.map((s) => (
-            <Link
-              key={s.subjectId}
-              to={`/quiz/adaptive/${s.subjectId}`}
-              className="text-brand-600 hover:underline mr-2"
-            >
-              {s.subjectName}
-            </Link>
-          ))}
-        </p>
       </section>
 
       {recommendedTopics.length > 0 && (
-        <section className="mb-8">
-          <h2 className="font-display font-semibold text-lg mb-3">Recommended topics to work on</h2>
-          <ul className="space-y-2">
+        <section className="mb-10">
+          <h2 className="font-display font-semibold text-lg text-slate-800 mb-4">Recommended topics</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
             {recommendedTopics.map((t) => (
-              <li key={t.topicId}>
-                <Link
-                  to={`/materials/${t.topicId}`}
-                  className="text-brand-600 hover:underline"
-                >
-                  {t.topicName} (score: {t.score}%)
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {bySubject.length > 0 && (
-        <section className="mb-8">
-          <h2 className="font-display font-semibold text-lg mb-3">Progress by subject</h2>
-          <div className="grid gap-4 sm:grid-cols-3">
-            {bySubject.map((s) => (
-              <div
-                key={s.subjectId}
-                className="p-4 bg-white border border-slate-200 rounded-xl"
+              <Link
+                key={t.topicId}
+                to={`/materials/${t.topicId}`}
+                className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition hover:border-brand-300 hover:shadow"
               >
-                <h3 className="font-medium">{s.subjectName}</h3>
-                <p className="text-slate-600 text-sm mt-1">
-                  Mastered: {s.mastered} · Weak: {s.weak} · Total topics: {s.total}
-                </p>
-                <Link
-                  to={`/quiz/adaptive/${s.subjectId}`}
-                  className="text-brand-600 text-sm hover:underline mt-2 inline-block"
-                >
-                  Take adaptive quiz
-                </Link>
-              </div>
+                <span className="font-medium text-slate-800">{t.topicName}</span>
+                <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-sm font-medium text-amber-800">
+                  {t.score}%
+                </span>
+              </Link>
             ))}
           </div>
         </section>
       )}
 
       <section>
-        <h2 className="font-display font-semibold text-lg mb-3">Recent quizzes</h2>
+        <h2 className="font-display font-semibold text-lg text-slate-800 mb-4">Recent quizzes</h2>
         {recentQuizzes.length === 0 ? (
-          <p className="text-slate-500">No quizzes yet. Start by choosing a subject above.</p>
+          <p className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-6 text-slate-500">
+            No quizzes yet. Start by taking an initial quiz for a subject above.
+          </p>
         ) : (
-          <ul className="space-y-2">
-            {recentQuizzes.map((q) => (
-              <li key={q.id} className="flex items-center justify-between py-2 border-b border-slate-100">
-                <span>
-                  {q.subjectName} – {q.type} quiz
-                </span>
-                <span className="text-slate-600">
-                  {q.scorePercent}% · {new Date(q.completedAt).toLocaleDateString()}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <ul className="divide-y divide-slate-100">
+              {recentQuizzes.map((q) => (
+                <li key={q.id} className="flex items-center justify-between px-4 py-3">
+                  <span className="font-medium text-slate-800">
+                    {q.subjectName} · {q.type}
+                  </span>
+                  <span className="text-slate-500">
+                    {q.scorePercent}% · {new Date(q.completedAt).toLocaleDateString()}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </section>
     </div>

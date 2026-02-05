@@ -10,11 +10,13 @@ const router = Router();
 // Dashboard: summary + recommended topics + recent quizzes
 router.get('/dashboard', requireAuth, async (req, res, next) => {
   try {
-    const [recentQuizzes, masteries, subjects] = await Promise.all([
+    const [recentQuizzes, masteries, subjects, initialCompletedSubjectIds] = await Promise.all([
       QuizResult.find({ userId: req.userId }).sort({ completedAt: -1 }).limit(10).populate('subjectId', 'name').lean(),
       UserMastery.find({ userId: req.userId }).populate('topicId').lean(),
       Subject.find().select('name _id').lean(),
+      QuizResult.distinct('subjectId', { userId: req.userId, type: 'initial' }),
     ]);
+    const completedSet = new Set(initialCompletedSubjectIds.map((id) => id.toString()));
 
     const bySubject = {};
     for (const m of masteries) {
@@ -50,6 +52,7 @@ router.get('/dashboard', requireAuth, async (req, res, next) => {
       bySubject: subjects.map((s) => ({
         subjectId: s._id,
         subjectName: s.name,
+        initialQuizCompleted: completedSet.has(s._id.toString()),
         ...(bySubject[s._id.toString()] || { mastered: 0, weak: 0, total: 0 }),
       })),
       recommendedTopics: recommended,

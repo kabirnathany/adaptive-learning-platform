@@ -33,11 +33,14 @@ router.get('/:subjectId/topics', requireAuth, async (req, res, next) => {
 // Learning materials for a topic
 router.get('/topics/:topicId/materials', requireAuth, async (req, res, next) => {
   try {
-    const materials = await LearningMaterial.find({ topicId: req.params.topicId })
-      .sort('order')
-      .select('title type content url order')
-      .lean();
-    res.json({ materials });
+    const [topic, materials] = await Promise.all([
+      Topic.findById(req.params.topicId).select('name description').lean(),
+      LearningMaterial.find({ topicId: req.params.topicId })
+        .sort('order')
+        .select('title type content url order')
+        .lean(),
+    ]);
+    res.json({ topicName: topic?.name, topicDescription: topic?.description, materials });
   } catch (e) {
     next(e);
   }

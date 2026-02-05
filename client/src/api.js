@@ -46,10 +46,10 @@ export async function api(path, options = {}) {
     data = text ? JSON.parse(text) : {};
   } catch (_) {}
   if (!res.ok) {
-    const msg = data.error || res.statusText || 'Request failed';
+    const msg = data.message || data.error || res.statusText || 'Request failed';
     const err = new Error(msg);
     err.status = res.status;
-    err.code = data.code;
+    err.body = data;
     throw err;
   }
   return data;

@@ -4,47 +4,80 @@ import { get } from '../api';
 
 export default function Materials() {
   const { topicId } = useParams();
-  const [materials, setMaterials] = useState([]);
+  const [data, setData] = useState({ topicName: '', topicDescription: '', materials: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     get(`/api/subjects/topics/${topicId}/materials`)
-      .then((data) => setMaterials(data.materials || []))
-      .catch(() => setMaterials([]))
+      .then((res) => setData({
+        topicName: res.topicName ?? 'Learning materials',
+        topicDescription: res.topicDescription ?? '',
+        materials: res.materials ?? [],
+      }))
+      .catch(() => setData({ topicName: '', topicDescription: '', materials: [] }))
       .finally(() => setLoading(false));
   }, [topicId]);
 
   if (loading) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-12 flex justify-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-2 border-brand-500 border-t-transparent" />
+      <div className="flex min-h-[40vh] items-center justify-center px-4">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
       </div>
     );
   }
 
+  const { topicName, topicDescription, materials } = data;
+
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8">
-      <Link to="/dashboard" className="text-brand-600 hover:underline text-sm mb-4 inline-block">
+    <div className="mx-auto max-w-3xl px-4 py-8">
+      <Link
+        to="/dashboard"
+        className="mb-6 inline-flex items-center text-sm font-medium text-brand-600 hover:text-brand-700"
+      >
         ← Back to dashboard
       </Link>
-      <h1 className="font-display text-xl font-semibold mb-6">Learning materials</h1>
+
+      <header className="mb-8">
+        <h1 className="font-display text-2xl font-bold text-slate-800 sm:text-3xl">
+          {topicName || 'Learning materials'}
+        </h1>
+        {topicDescription && (
+          <p className="mt-2 text-slate-600">{topicDescription}</p>
+        )}
+      </header>
+
       {materials.length === 0 ? (
-        <p className="text-slate-500">No materials for this topic yet.</p>
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center text-slate-500">
+          No materials for this topic yet.
+        </div>
       ) : (
-        <ul className="space-y-4">
+        <ul className="space-y-6">
           {materials.map((m) => (
-            <li key={m._id} className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-              <h2 className="font-medium">{m.title}</h2>
-              <p className="text-slate-600 text-sm mt-1">{m.type}</p>
-              {m.content && <p className="mt-2 text-slate-700">{m.content}</p>}
+            <li
+              key={m._id}
+              className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+            >
+              <h2 className="font-display text-lg font-semibold text-slate-800">
+                {m.title}
+              </h2>
+              {m.type && (
+                <span className="mt-1 inline-block text-xs font-medium uppercase tracking-wide text-slate-400">
+                  {m.type}
+                </span>
+              )}
+              {m.content && (
+                <div className="prose prose-slate mt-4 max-w-none text-slate-700">
+                  <p className="whitespace-pre-wrap leading-relaxed">{m.content}</p>
+                </div>
+              )}
               {m.url && (
                 <a
                   href={m.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-brand-600 hover:underline text-sm mt-2 inline-block"
+                  className="mt-4 inline-flex items-center rounded-lg bg-brand-100 px-4 py-2 text-sm font-medium text-brand-700 hover:bg-brand-200"
                 >
-                  Open link
+                  Open link →
                 </a>
               )}
             </li>

@@ -14,6 +14,10 @@ router.get('/initial/:subjectId', requireAuth, async (req, res, next) => {
   try {
     const subject = await Subject.findById(req.params.subjectId).lean();
     if (!subject) return res.status(404).json({ error: 'Subject not found' });
+    const existingInitial = await QuizResult.findOne({ userId: req.userId, subjectId: subject._id, type: 'initial' }).select('_id').lean();
+    if (existingInitial) {
+      return res.status(403).json({ error: 'ALREADY_COMPLETED', message: 'You have already completed the initial quiz for this subject.' });
+    }
     const topics = await Topic.find({ subjectId: subject._id }).select('_id gradeLevel').lean();
     const topicIds = topics.map((t) => t._id);
     const perTopic = Math.max(1, Math.floor(20 / Math.max(1, topicIds.length)));

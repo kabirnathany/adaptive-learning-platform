@@ -4,13 +4,12 @@ import { Subject } from '../models/Subject.js';
 import { Topic } from '../models/Topic.js';
 import { Question } from '../models/Question.js';
 import { LearningMaterial } from '../models/LearningMaterial.js';
-
-const GRADE_LEVELS = ['K', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'];
+import { GRADE_LEVELS, MATH_TOPICS, ENGLISH_TOPICS, SCIENCE_TOPICS } from './seedData.js';
 
 const SUBJECTS = [
-  { name: 'Math', description: 'Mathematics from K-12' },
-  { name: 'English', description: 'English Language Arts K-12' },
-  { name: 'Science', description: 'Science K-12' },
+  { name: 'Math', description: 'Mathematics from K-12', data: MATH_TOPICS },
+  { name: 'English', description: 'English Language Arts K-12', data: ENGLISH_TOPICS },
+  { name: 'Science', description: 'Science K-12', data: SCIENCE_TOPICS },
 ];
 
 async function seed() {
@@ -22,46 +21,64 @@ async function seed() {
 
   for (const s of SUBJECTS) {
     const subject = await Subject.create({
-      ...s,
+      name: s.name,
+      description: s.description,
       gradeLevels: [...GRADE_LEVELS],
     });
     let order = 0;
     for (const grade of GRADE_LEVELS) {
-      const topicName =
-        s.name === 'Math'
-          ? `Grade ${grade} Math - Numbers & Operations`
-          : s.name === 'English'
-          ? `Grade ${grade} English - Reading & Writing`
-          : `Grade ${grade} Science - Life & Earth`;
+      const topicData = s.data[grade];
+      const topicName = topicData?.topicName ?? `${s.name} Grade ${grade}`;
+      const topicDescription = topicData?.topicDescription ?? `Core ${s.name} concepts for grade ${grade}.`;
       const topic = await Topic.create({
         subjectId: subject._id,
         gradeLevel: grade,
         name: topicName,
-        description: `Core ${s.name} concepts for grade ${grade}.`,
+        description: topicDescription,
         order: order++,
       });
-      const qCount = 3;
-      for (let i = 0; i < qCount; i++) {
+      if (topicData?.questions?.length) {
+        for (const q of topicData.questions) {
+          await Question.create({
+            topicId: topic._id,
+            text: q.text,
+            options: q.options,
+            correctIndex: q.correctIndex,
+            explanation: q.explanation ?? '',
+            difficulty: q.difficulty ?? 'medium',
+          });
+        }
+      } else {
         await Question.create({
           topicId: topic._id,
-          text: `Sample ${s.name} question for grade ${grade} (#${i + 1}): What is the correct answer?`,
+          text: `Sample ${s.name} question for grade ${grade}: What is the correct answer?`,
           options: ['Option A', 'Option B', 'Option C', 'Option D'],
-          correctIndex: i % 4,
-          explanation: 'This is the explanation for the correct answer.',
-          difficulty: ['easy', 'medium', 'hard'][i % 3],
+          correctIndex: 0,
+          explanation: 'Review the topic to understand the correct answer.',
+          difficulty: 'medium',
         });
       }
-      await LearningMaterial.create({
-        topicId: topic._id,
-        type: 'text',
-        title: `Study guide - ${topicName}`,
-        content: `Review material for ${topicName}. Practice these concepts to improve.`,
-        order: 0,
-      });
+      if (topicData?.material) {
+        await LearningMaterial.create({
+          topicId: topic._id,
+          type: 'text',
+          title: topicData.material.title,
+          content: topicData.material.content,
+          order: 0,
+        });
+      } else {
+        await LearningMaterial.create({
+          topicId: topic._id,
+          type: 'text',
+          title: `Study guide - ${topicName}`,
+          content: `Review material for ${topicName}. Practice these concepts to improve.`,
+          order: 0,
+        });
+      }
     }
   }
 
-  console.log('Seed complete: subjects, topics, sample questions, and materials created.');
+  console.log('Seed complete: subjects, topics, real questions, and learning materials created.');
   await mongoose.disconnect();
 }
 
